@@ -1,0 +1,13 @@
+torch
+torchvision
+fastapi==0.115.6
+uvicorn==0.34.0
+python-multipart==0.0.20
+openai==1.70.0
+python-dotenv==1.1.0
+boto3==1.34.34
+sagemaker==2.208.0
+opencv-python==4.8.1.78
+Pillow==10.1.0
+numpy==1.24.4
+requests==2.31.0

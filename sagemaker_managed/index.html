@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Segment Anything</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+        h2 {
+            color: #2c3e50;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+        .input-group {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        input {
+            flex: 1;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        input:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        button {
+            padding: 12px 25px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+            transform: translateY(-2px);
+        }
+        button:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .results-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-top: 30px;
+        }
+        .result-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        .result-card h3 {
+            color: #2c3e50;
+            margin-top: 0;
+            margin-bottom: 15px;
+        }
+        .image-wrapper {
+            position: relative;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .image-wrapper img {
+            width: 100%;
+            display: block;
+            border-radius: 8px;
+            transition: transform 0.3s;
+        }
+        .image-wrapper img.clickable {
+            cursor: crosshair;
+        }
+        .image-wrapper img:not(.clickable) {
+            cursor: default;
+        }
+        .image-wrapper img:hover {
+            transform: scale(1.02);
+        }
+        .dot {
+            width: 12px;
+            height: 12px;
+            background-color: #e74c3c;
+            border-radius: 50%;
+            position: absolute;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.8);
+            z-index: 10;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .controls button {
+            flex: 1;
+        }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 2s linear infinite;
+            margin: 20px auto;
+            display: none;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .error-message {
+            color: #e74c3c;
+            background-color: #fde8e8;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            display: none;
+        }
+        .console {
+            background-color: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 14px;
+        }
+        .console p {
+            margin: 5px 0;
+        }
+        .toggle-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .toggle-buttons button {
+            flex: 1;
+            background-color: #ecf0f1;
+            color: #2c3e50;
+        }
+        .toggle-buttons button.active {
+            background-color: #3498db;
+            color: white;
+        }
+        .download-button {
+            background-color: #27ae60;
+        }
+        .download-button:hover {
+            background-color: #219a52;
+        }
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .health-status {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            border: 1px solid #e0e0e0;
+        }
+        .health-status h3 {
+            color: #2c3e50;
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+        .health-status.healthy {
+            border-color: #27ae60;
+            background-color: #e8f5e9;
+        }
+        .health-status.error {
+            border-color: #e74c3c;
+            background-color: #fde8e8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Fashivly-Duke Image Segmentation Prototype</h2>
+        <div class="input-group">
+            <input type="text" id="imageUrl" placeholder="Enter image URL">
+            <input type="text" id="productName" placeholder="Enter product name">
+        </div>
+        <div class="button-group">
+            <button id="processButton" onclick="processImage()">Process Image</button>
+            <button id="healthCheckButton" onclick="checkHealth()">Check Health</button>
+        </div>
+        <div id="healthStatus" class="health-status hidden">
+            <h3>System Health Status</h3>
+            <div id="healthDetails"></div>
+        </div>
+        <div id="loader" class="loader"></div>
+        <div id="errorMessage" class="error-message"></div>
+        
+        <div id="results" class="results-container">
+            <!-- LangSAM Section -->
+            <div id="langsamSection" class="result-card hidden">
+                <h3>LangSAM Result</h3>
+                <div class="image-wrapper">
+                    <img id="segmentedImage">
+                </div>
+                <div class="controls">
+                    <button class="download-button" onclick="downloadImage('segmentedImage', 'langsam-segmentation.png')">Download</button>
+                    <button id="useSAM2" onclick="enableSAM2()">Use SAM2</button>
+                </div>
+            </div>
+
+            <!-- Original Image Section -->
+            <div id="originalImageSection" class="result-card hidden">
+                <h3>Original Image</h3>
+                <div class="image-wrapper">
+                    <img id="originalImage">
+                    <div id="clickDot" class="dot hidden"></div>
+                </div>
+                <div class="toggle-buttons">
+                    <button id="toggleMask" onclick="toggleMask()">Show Mask</button>
+                    <button id="toggleOriginal" onclick="toggleOriginal()" class="active">Show Original</button>
+                </div>
+                <div class="controls">
+                    <button class="download-button" onclick="downloadImage('originalImage', 'original-image.png')">Download</button>
+                </div>
+            </div>
+
+            <!-- SAM2 Section -->
+            <div id="sam2Section" class="result-card hidden">
+                <h3>SAM2 Segmentation Result</h3>
+                <div class="image-wrapper">
+                    <img id="sam2Image" class="clickable">
+                    <div id="sam2Dot" class="dot hidden"></div>
+                </div>
+                <div class="toggle-buttons">
+                    <button id="toggleSAM2Mask" onclick="toggleSAM2Mask()">Show Mask</button>
+                    <button id="toggleSAM2Overlay" onclick="toggleSAM2Overlay()" class="active">Show Overlay</button>
+                    <button id="toggleSAM2Original" onclick="toggleSAM2Original()">Show Original</button>
+                </div>
+                <div class="controls">
+                    <button class="download-button" onclick="downloadImage('sam2Image', 'sam2-segmentation.png')">Download</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="console" class="console"></div>
+    </div>
+
+    <script>
+        let selectedX = 0, selectedY = 0;
+        let clickEnabled = false;
+        let currentImageUrl = "";
+        let currentProductName = "";
+
+        function log(message) {
+            const console = document.getElementById("console");
+            const timestamp = new Date().toLocaleTimeString();
+            console.innerHTML += `[${timestamp}] ${message}<br>`;
+            console.scrollTop = console.scrollHeight;
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById("errorMessage");
+            errorDiv.textContent = message;
+            errorDiv.classList.remove("hidden");
+            log(`Error: ${message}`);
+        }
+
+        function hideError() {
+            document.getElementById("errorMessage").classList.add("hidden");
+        }
+
+        async function processImage() {
+            const imageUrl = document.getElementById("imageUrl").value;
+            const productName = document.getElementById("productName").value;
+
+            if (!imageUrl || !productName) {
+                showError("Please enter both image URL and product name!");
+                return;
+            }
+
+            currentImageUrl = imageUrl;
+            currentProductName = productName;
+
+            // Disable button and show loader
+            document.getElementById("processButton").disabled = true;
+            document.getElementById("loader").style.display = "block";
+            hideError();
+
+            try {
+                // Process with LangSAM directly
+                await segmentWithLangSAM(imageUrl, productName);
+                
+            } catch (error) {
+                showError(`Error processing image: ${error.message}`);
+                console.error("Error:", error);
+            } finally {
+                document.getElementById("processButton").disabled = false;
+                document.getElementById("loader").style.display = "none";
+            }
+        }
+
+        async function segmentWithLangSAM(imageUrl, textPrompt) {
+            try {
+                log("Starting LangSAM segmentation...");
+                
+                // Prepare the request payload
+                const payload = {
+                    image_url: imageUrl,
+                    text_prompt: textPrompt
+                };
+
+                const response = await fetch("http://localhost:7860/segment/langsam", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        image_url: imageUrl,
+                        text_prompt: textPrompt
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`LangSAM API error: ${await response.text()}`);
+                }
+
+                const result = await response.json();
+
+                log(`OpenAI response: ${result.product_tag}`);
+                
+                // Display all versions of the image
+                const originalImage = document.getElementById("originalImage");
+                originalImage.src = `data:image/png;base64,${result.original}`;
+                originalImage.dataset.original = `data:image/png;base64,${result.original}`;
+                originalImage.dataset.maskOnly = `data:image/png;base64,${result.mask_only}`;
+                
+                document.getElementById("segmentedImage").src = `data:image/png;base64,${result.overlay}`;
+                
+                // Show the sections
+                document.getElementById("langsamSection").classList.remove("hidden");
+                document.getElementById("originalImageSection").classList.remove("hidden");
+                
+                log("LangSAM segmentation completed successfully");
+            } catch (error) {
+                showError(`Error in LangSAM segmentation: ${error.message}`);
+                console.error("Error:", error);
+            }
+        }
+
+        function enableSAM2() {
+            log("Enabling SAM2 mode...");
+            document.getElementById("useSAM2").textContent = "SAM2 Mode Active - Click on Image";
+            document.getElementById("useSAM2").disabled = true;
+            clickEnabled = true;
+            
+            // Show the original image in SAM2 section
+            const originalImage = document.getElementById("originalImage");
+            const sam2Image = document.getElementById("sam2Image");
+            sam2Image.src = originalImage.dataset.original;
+            sam2Image.dataset.original = originalImage.dataset.original;
+            sam2Image.dataset.maskOnly = originalImage.dataset.maskOnly;
+            
+            // Show SAM2 section
+            document.getElementById("sam2Section").classList.remove("hidden");
+            
+            // Add click event listener to SAM2 image
+            sam2Image.addEventListener("click", selectPoint);
+            
+            // Add clickable cursor style
+            sam2Image.classList.add("clickable");
+        }
+
+        function selectPoint(event) {
+            if (!clickEnabled) return;
+            
+            let img = event.target;
+            let rect = img.getBoundingClientRect();
+            
+            const clickX = event.clientX - rect.left;
+            const clickY = event.clientY - rect.top;
+
+            let scaleX = img.naturalWidth / rect.width;
+            let scaleY = img.naturalHeight / rect.height;
+            selectedX = Math.round(clickX * scaleX);
+            selectedY = Math.round(clickY * scaleY);
+
+            log(`Selected point: (${selectedX}, ${selectedY})`);
+
+            // Show dot on the clicked image
+            const dot = img.id === "sam2Image" ? 
+                document.getElementById("sam2Dot") : 
+                document.getElementById("clickDot");
+            
+            dot.style.left = `${clickX}px`;
+            dot.style.top = `${clickY}px`;
+            dot.classList.remove("hidden");
+
+            segmentWithSAM2();
+        }
+
+        async function segmentWithSAM2() {
+            try {
+                log("Starting SAM2 segmentation...");
+                document.getElementById("sam2Section").classList.remove("hidden");
+                document.getElementById("loader").style.display = "block";
+
+                // Prepare the request payload
+                const payload = {
+                    image_url: currentImageUrl,
+                    x: selectedX,
+                    y: selectedY
+                };
+
+                const response = await fetch("http://localhost:7860/segment/sam2", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        image_url: currentImageUrl,
+                        x: selectedX,
+                        y: selectedY
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`SAM2 API error: ${await response.text()}`);
+                }
+
+                const result = await response.json();
+                
+                // Store all versions of the image
+                const sam2Image = document.getElementById("sam2Image");
+                sam2Image.dataset.original = `data:image/png;base64,${result.original}`;
+                sam2Image.dataset.overlay = `data:image/png;base64,${result.overlay}`;
+                sam2Image.dataset.maskOnly = `data:image/png;base64,${result.mask_only}`;
+                
+                // Show overlay by default
+                sam2Image.src = sam2Image.dataset.overlay;
+                
+                log(`SAM2 segmentation completed successfully (score: ${result.score.toFixed(2)})`);
+            } catch (error) {
+                showError(`Error in SAM2 segmentation: ${error.message}`);
+                console.error("Error:", error);
+            } finally {
+                document.getElementById("loader").style.display = "none";
+                document.getElementById("useSAM2").textContent = "Click again for different point";
+                document.getElementById("useSAM2").disabled = false;
+            }
+        }
+
+        function downloadImage(imageId, filename) {
+            const image = document.getElementById(imageId);
+            const link = document.createElement('a');
+            link.href = image.src;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function toggleMask() {
+            const originalImage = document.getElementById('originalImage');
+            const toggleMaskBtn = document.getElementById('toggleMask');
+            const toggleOriginalBtn = document.getElementById('toggleOriginal');
+            
+            if (originalImage.dataset.maskOnly) {
+                originalImage.src = originalImage.dataset.maskOnly;
+                toggleMaskBtn.classList.add('active');
+                toggleOriginalBtn.classList.remove('active');
+            }
+        }
+
+        function toggleOriginal() {
+            const originalImage = document.getElementById('originalImage');
+            const toggleMaskBtn = document.getElementById('toggleMask');
+            const toggleOriginalBtn = document.getElementById('toggleOriginal');
+            
+            if (originalImage.dataset.original) {
+                originalImage.src = originalImage.dataset.original;
+                toggleMaskBtn.classList.remove('active');
+                toggleOriginalBtn.classList.add('active');
+            }
+        }
+
+        function toggleSAM2Mask() {
+            const sam2Image = document.getElementById('sam2Image');
+            const toggleMaskBtn = document.getElementById('toggleSAM2Mask');
+            const toggleOverlayBtn = document.getElementById('toggleSAM2Overlay');
+            const toggleOriginalBtn = document.getElementById('toggleSAM2Original');
+            
+            if (sam2Image.dataset.maskOnly) {
+                sam2Image.src = sam2Image.dataset.maskOnly;
+                toggleMaskBtn.classList.add('active');
+                toggleOverlayBtn.classList.remove('active');
+                toggleOriginalBtn.classList.remove('active');
+            }
+        }
+
+        function toggleSAM2Overlay() {
+            const sam2Image = document.getElementById('sam2Image');
+            const toggleMaskBtn = document.getElementById('toggleSAM2Mask');
+            const toggleOverlayBtn = document.getElementById('toggleSAM2Overlay');
+            const toggleOriginalBtn = document.getElementById('toggleSAM2Original');
+            
+            if (sam2Image.dataset.overlay) {
+                sam2Image.src = sam2Image.dataset.overlay;
+                toggleMaskBtn.classList.remove('active');
+                toggleOverlayBtn.classList.add('active');
+                toggleOriginalBtn.classList.remove('active');
+            }
+        }
+
+        function toggleSAM2Original() {
+            const sam2Image = document.getElementById('sam2Image');
+            const toggleMaskBtn = document.getElementById('toggleSAM2Mask');
+            const toggleOverlayBtn = document.getElementById('toggleSAM2Overlay');
+            const toggleOriginalBtn = document.getElementById('toggleSAM2Original');
+            
+            if (sam2Image.dataset.original) {
+                sam2Image.src = sam2Image.dataset.original;
+                toggleMaskBtn.classList.remove('active');
+                toggleOverlayBtn.classList.remove('active');
+                toggleOriginalBtn.classList.add('active');
+            }
+        }
+
+        async function checkHealth() {
+            const healthButton = document.getElementById("healthCheckButton");
+            const healthStatus = document.getElementById("healthStatus");
+            const healthDetails = document.getElementById("healthDetails");
+            
+            healthButton.disabled = true;
+            healthButton.textContent = "Checking...";
+            healthStatus.classList.remove("hidden");
+            healthDetails.innerHTML = "Checking system health...";
+            
+            let retries = 3;
+            let delay = 2000; // 2 seconds between retries
+            
+            while (retries > 0) {
+                try {
+                    const response = await fetch("http://localhost:7860/health");
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        healthStatus.classList.remove("error");
+                        healthStatus.classList.add("healthy");
+                        healthDetails.innerHTML = `
+                            <p><strong>Status:</strong> ${data.status}</p>
+                            <p><strong>Message:</strong> ${data.message}</p>
+                            <p><strong>Endpoint Status:</strong> ${data.endpoint_status}</p>
+                            <p><strong>Creation Time:</strong> ${data.creation_time}</p>
+                            <p><strong>Last Modified:</strong> ${data.last_modified_time}</p>
+                            <p><strong>Models Loaded:</strong> ${JSON.stringify(data.models_loaded)}</p>
+                        `;
+                        break; // Success, exit retry loop
+                    } else {
+                        healthStatus.classList.remove("healthy");
+                        healthStatus.classList.add("error");
+                        healthDetails.innerHTML = `
+                            <p><strong>Status:</strong> ${data.status}</p>
+                            <p><strong>Error:</strong> ${data.message}</p>
+                            <p><strong>Retries remaining:</strong> ${retries - 1}</p>
+                        `;
+                    }
+                } catch (error) {
+                    healthStatus.classList.remove("healthy");
+                    healthStatus.classList.add("error");
+                    healthDetails.innerHTML = `
+                        <p><strong>Error:</strong> ${error.message}</p>
+                        <p><strong>Retries remaining:</strong> ${retries - 1}</p>
+                        <p>This might be due to the model container warming up. Retrying in ${delay/1000} seconds...</p>
+                    `;
+                }
+                
+                retries--;
+                if (retries > 0) {
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    delay *= 1.5; // Increase delay between retries
+                }
+            }
+            
+            if (retries === 0) {
+                healthDetails.innerHTML += `
+                    <p><strong>Note:</strong> The endpoint might be warming up. Try again in a few minutes.</p>
+                    <p>If the issue persists, check:</p>
+                    <ul>
+                        <li>CloudWatch logs for the endpoint</li>
+                        <li>Endpoint configuration in SageMaker</li>
+                        <li>Model container logs</li>
+                    </ul>
+                `;
+            }
+            
+            healthButton.disabled = false;
+            healthButton.textContent = "Check Health";
+        }
+    </script>
+</body>
+</html>

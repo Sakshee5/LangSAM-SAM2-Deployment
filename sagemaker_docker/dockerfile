@@ -1,0 +1,44 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements first
+COPY requirements.txt .
+
+# Install PyTorch and dependencies
+RUN pip install torch==2.4.1 torchvision==0.19.1 --extra-index-url https://download.pytorch.org/whl/cu124
+RUN pip install -U git+https://github.com/luca-medeiros/lang-segment-anything.git
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Create the expected directory structure for SAM2 configs
+RUN mkdir -p /app/configs/sam2.1/
+
+# Copy model file directly to app directory
+COPY tmp/sam2.1_hiera_small.pt /app/
+
+# Copy config file to the SAM2 expected location
+COPY tmp/sam2.1_hiera_s.yaml /app/configs/sam2.1/
+
+# Copy application code
+COPY app.py .
+
+# Create entrypoint script
+RUN echo '#!/bin/bash\nset -e\n\necho "Starting container with arguments: $@"\n\nif [ "$1" = "serve" ]; then\n    echo "Starting the API server..."\n    exec uvicorn app:app --host 0.0.0.0 --port 8080\nelse\n    echo "Running command: $@"\n    exec "$@"\nfi' > /app/entrypoint.sh && \
+    chmod +x /app/entrypoint.sh
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=TRUE \
+    PYTHONDONTWRITEBYTECODE=TRUE \
+    PATH="/app:${PATH}"
+
+EXPOSE 8080
+
+ENTRYPOINT ["/app/entrypoint.sh"]
