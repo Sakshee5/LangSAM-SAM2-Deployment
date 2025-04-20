@@ -113,6 +113,18 @@ The system follows a microservices architecture with these key components:
    - Ensures container has all necessary files
    - Eliminates runtime S3 dependencies
 
+## Performance Considerations
+
+1. **Current Implementation**:
+   - Models (`LangSAM` and `SAM2`) are initialized within their respective endpoint handlers. Check `app.py`
+   - Each API request triggers a new model initialization
+   - This adds substantial latency to every request (typically 5-10 seconds per request)
+
+2. **Attempted Optimization**:
+   - Global model initialization was attempted to reduce per-request latency
+   - However, this caused container startup timeouts during deployment
+   - The large model sizes and initialization time exceeded AWS SageMaker's container startup limits
+
 ## Models
 
 The system uses two state-of-the-art segmentation models:
