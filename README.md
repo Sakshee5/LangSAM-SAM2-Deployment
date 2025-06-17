@@ -1,6 +1,6 @@
 # LangSAM + SAM2 Deployment
 
-The repository contains code for LangSAM and SAM2 deployment using three approaches
+The repository contains code for LangSAM and SAM2 deployment using three approaches 
 ### 1. Hugging Face Spaces (Uses CPU) - `\hugging_face_spaces`
 - Deployment: [Link](https://huggingface.co/spaces/sakshee05/langSAM)
 - Run `index.html` from the root directory. Uses endpoints deployed on Hugging Face Spaces.
@@ -15,7 +15,7 @@ The repository contains code for LangSAM and SAM2 deployment using three approac
 
 ## Use-Case
 
-Designed for Fashivly. Provides image segmentation capabilities for fashion products. The system enables:
+Provides image segmentation capabilities for fashion products. The system enables:
 
 - Automatic segmentation of fashion items from product images using natural language descriptions
 - Precise extraction of specific fashion elements (e.g., "red dress", "leather handbag", "sneakers") from complex product names scraped from ecommerce websites which act as LangSAM input.
