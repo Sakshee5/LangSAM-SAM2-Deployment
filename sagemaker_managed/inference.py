@@ -37,7 +37,7 @@ def get_secret(secret_name):
         response = client.get_secret_value(SecretId=secret_name)
         logger.info("Successfully retrieved secret")
     except Exception as e:
-        logger.error(f"Error retrieving secret: {e}")
+        logger.error(f"Error retrieving secret: {e}") 
         return None
     
     secret = response['SecretString']
