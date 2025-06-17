@@ -4,7 +4,7 @@ import json
 import base64
 from typing import Dict, Any
 
-# Configure logging
+# Configure logging 
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
